@@ -5,6 +5,7 @@
 int analogPin = 0;
 int strobePin = 9;
 int resetPin = 8; // reset is attached to digital pin 3
+int spectrumOffset[7] = { 51, 74, 68, 52, 62, 60, 60 };
 int spectrumValue[7]; // to hold a2d values
 
 Adafruit_NeoPixel leds = Adafruit_NeoPixel(NUMLEDS, 11, NEO_GRB + NEO_KHZ800);
@@ -25,6 +26,7 @@ void setup() {
   leds.setBrightness(255);
 }
 
+int b = 0;
 void loop() {
   // Read MSEQ7.
   digitalWrite(resetPin, HIGH);
@@ -32,8 +34,17 @@ void loop() {
   for (int i = 0; i < 7; i++) {
     digitalWrite(strobePin, LOW);
     delayMicroseconds(30);
-    spectrumValue[i] = analogRead(analogPin);
+    spectrumValue[i] = analogRead(analogPin) - spectrumOffset[i];
+    if (spectrumValue[i] < 0) {
+      spectrumValue[i] = 0;
+    }
     digitalWrite(strobePin, HIGH);
+  }
+
+  if (b == 0) {
+    b = 1;
+    for (int i = 0; i < 7; i++)
+      Serial.println(spectrumValue[i]);
   }
 
   // Set lights.
@@ -52,11 +63,11 @@ void loop() {
 }
 
 int audio_to_luminance(int audio_sample) {
-  if (audio_sample <= 75) {
-    return 0;
-  } else {
+//  if (audio_sample <= 10) {
+//    return 0;
+//  } else {
     return map(audio_sample, 0, 1024, 0, 255);
-  }
+//  }
 }
 
 
