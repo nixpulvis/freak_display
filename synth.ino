@@ -1,73 +1,115 @@
 #include <Adafruit_NeoPixel.h>
 
-#define NUMLEDS 28 * 6
+// Hardware configuration.
+#define ANALOG_PIN 0
+#define STROBE_PIN 9
+#define RESET_PIN 8
 
-int analogPin = 0;
-int strobePin = 9;
-int resetPin = 8; // reset is attached to digital pin 3
-int spectrumOffset[7] = { 60, 74, 68, 60, 62, 60, 60 };
-int spectrumValue[7]; // to hold a2d values
+// The MSGEQ7 has 7 bands which it samples for analog values.
+// for more information, read the `read_msgeq7` function.
+#define BANDS 7
 
-Adafruit_NeoPixel leds = Adafruit_NeoPixel(NUMLEDS, 11, NEO_GRB + NEO_KHZ800);
+// We have 28 LEDs along the width of the synth, going 6 deep back
+// away from the keys.
+//
+// TODO: Build out the back with ideally, 28x28 more.
+#define DISPLAY_WIDTH 28
+#define DISPLAY_DEPTH 6
+
+// The display object.
+//
+// TODO: This is currently the ONLY reason we are using Arduino,
+// and we should be able to rewrite this in pure C once I get the
+// time to write a WS2812 library.
+Adafruit_NeoPixel display = Adafruit_NeoPixel(
+  DISPLAY_WIDTH * DISPLAY_DEPTH,
+  11,
+  NEO_GRB + NEO_KHZ800);
 
 void setup() {
   Serial.begin(9600);
 
-  // Setup MSEQ7.
-  pinMode(analogPin, INPUT);
-  pinMode(strobePin, OUTPUT);
-  pinMode(resetPin, OUTPUT);
-  analogReference(DEFAULT);
-  digitalWrite(resetPin, LOW);
-  digitalWrite(strobePin, HIGH);
-
-  // Setup Lights.
-  leds.begin();
-  leds.setBrightness(127);
+  setup_display();
+  setup_msgeq7();
 }
 
 int b = 0;
 void loop() {
-  // Read MSEQ7.
-  digitalWrite(resetPin, HIGH);
-  digitalWrite(resetPin, LOW);
-  for (int i = 0; i < 7; i++) {
-    digitalWrite(strobePin, LOW);
+  int spectrum[7];
+
+  read_msgeq7(spectrum);
+
+  update_display(spectrum);
+}
+
+// Setup the interface with the MSGEQ7.
+void setup_msgeq7() {
+  pinMode(ANALOG_PIN, INPUT);
+  pinMode(STROBE_PIN, OUTPUT);
+  pinMode(RESET_PIN, OUTPUT);
+  analogReference(DEFAULT);
+  digitalWrite(RESET_PIN, LOW);
+  digitalWrite(STROBE_PIN, HIGH);
+}
+
+// This function updates it's input array with the latest values.
+//
+// The array's structure is defined by the MSGEQ7, and has the following
+// values: [63Hz, 160Hz, 400Hz, 1kHz, 2.5kHz, 6.25kHz, 16kHz].
+void read_msgeq7(int* spectrum) {
+  // TODO: Dynamically set this value somehow?
+  int spectrumOffset[7] = { 60, 74, 68, 60, 62, 60, 60 };
+
+  digitalWrite(RESET_PIN, HIGH);
+  digitalWrite(RESET_PIN, LOW);
+
+  for (int i = 0; i < BANDS; i++) {
+    digitalWrite(STROBE_PIN, LOW);
     delayMicroseconds(30);
-    spectrumValue[i] = analogRead(analogPin) - spectrumOffset[i];
-    if (spectrumValue[i] < 0) {
-      spectrumValue[i] = 0;
+    spectrum[i] = analogRead(ANALOG_PIN) - spectrumOffset[i];
+    if (spectrum[i] < 0) {
+      spectrum[i] = 0;
     }
-    digitalWrite(strobePin, HIGH);
+    digitalWrite(STROBE_PIN, HIGH);
   }
-
-  if (b == 0) {
-    b = 1;
-    for (int i = 0; i < 7; i++)
-      Serial.println(spectrumValue[i]);
-  }
-
-  // Set lights.
-  //
-  // --------------------------->
-  // <---------------------------
-  // --------------------------->
-  // <---------------------------
-  // --------------------------->
-  // <--------------------------0
-  for (int band = 0; band < 7; band++) {
-    int intensity = audio_to_luminance(spectrumValue[6 - band]);
-    leds.setPixelColor(band + 10, leds.Color(intensity, 0, 0));
-  }
-  leds.show();
 }
 
-int audio_to_luminance(int audio_sample) {
-//  if (audio_sample <= 10) {
-//    return 0;
-//  } else {
-    return map(audio_sample, 0, 1024, 0, 255);
-//  }
+// Setup the display's default configuration.
+void setup_display() {
+  display.begin();
+  display.setBrightness(127);
 }
 
+// TODO: Optional history over the depth of the display.
+// TODO: Smooth out the bars so only the two in the middle are the brightest,
+// this more closely matches the shape of the frequency response on the
+// datasheet.
+void update_display(int* spectrum) {
+  int intensity;
 
+  for (int row = 0; row < DISPLAY_DEPTH; row++) {
+    for (int band = 0; band < BANDS; band++) {
+      if (row % 2 == 0) {
+        intensity = map(spectrum[(BANDS - 1) - band], 0, 1024, 0, 255);
+      } else {
+        intensity = map(spectrum[band], 0, 1024, 0, 255);
+      }
+      for (int i = 0; i < DISPLAY_WIDTH / BANDS; i++) {
+        int display_index = (row * 28) + (band * 4) + i;
+        display.setPixelColor(display_index, intensity_color(intensity, row));
+      }
+    }
+  }
+  display.show();
+}
+
+// Given an audio intensity value, suggest a color for it...
+uint32_t intensity_color(int intensity, int row) {
+  // if (row % 3 == 0) {
+  //   return display.Color(map(intensity, 0, 1024, 0, 255), 0, 0);
+  // } else if (row % 3 == 1) {
+  //   return display.Color(0, map(intensity, 0, 1024, 0, 255), 0);
+  // } else {
+    return display.Color(0, 0, map(intensity, 0, 1024, 0, 255));
+  // }
+}
