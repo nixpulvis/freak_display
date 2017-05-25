@@ -23,7 +23,7 @@ void setup() {
 
   // Setup Lights.
   leds.begin();
-  leds.setBrightness(255);
+  leds.setBrightness(127);
 }
 
 int b = 0;
