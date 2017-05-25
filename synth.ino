@@ -5,7 +5,7 @@
 int analogPin = 0;
 int strobePin = 9;
 int resetPin = 8; // reset is attached to digital pin 3
-int spectrumOffset[7] = { 51, 74, 68, 52, 62, 60, 60 };
+int spectrumOffset[7] = { 60, 74, 68, 60, 62, 60, 60 };
 int spectrumValue[7]; // to hold a2d values
 
 Adafruit_NeoPixel leds = Adafruit_NeoPixel(NUMLEDS, 11, NEO_GRB + NEO_KHZ800);
