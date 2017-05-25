@@ -1,3 +1,4 @@
+#include <limits.h>
 #include <Adafruit_NeoPixel.h>
 
 // Hardware configuration.
@@ -85,8 +86,9 @@ void setup_display() {
 // this more closely matches the shape of the frequency response on the
 // datasheet.
 void update_display(int* spectrum) {
-  int intensity;
+  int loudest_band = max_index(spectrum);
 
+  int intensity;
   for (int row = 0; row < DISPLAY_DEPTH; row++) {
     for (int band = 0; band < BANDS; band++) {
       if (row % 2 == 0) {
@@ -96,20 +98,49 @@ void update_display(int* spectrum) {
       }
       for (int i = 0; i < DISPLAY_WIDTH / BANDS; i++) {
         int display_index = (row * 28) + (band * 4) + i;
-        display.setPixelColor(display_index, intensity_color(intensity, row));
+        display.setPixelColor(
+          display_index,
+          intensity_color(intensity, loudest_band));
       }
     }
   }
   display.show();
 }
 
-// Given an audio intensity value, suggest a color for it...
-uint32_t intensity_color(int intensity, int row) {
-  // if (row % 3 == 0) {
-  //   return display.Color(map(intensity, 0, 1024, 0, 255), 0, 0);
-  // } else if (row % 3 == 1) {
-  //   return display.Color(0, map(intensity, 0, 1024, 0, 255), 0);
-  // } else {
-    return display.Color(0, 0, map(intensity, 0, 1024, 0, 255));
-  // }
+// Given the audio intensity and the loudest band and return a color.
+//
+// We take the audio intensity to change the light's intensity. We need to
+// know the loudest band to change the color of the whole strip.
+uint32_t intensity_color(int intensity, int loudest) {
+  int scaled_intensity = map(intensity, 0, 1024, 0, 255);
+
+  switch (loudest) {
+    case 0:
+    case 1:
+      return display.Color(0, 0, scaled_intensity);
+    case 2:
+    case 3:
+      return display.Color(0, scaled_intensity, 0);
+    case 4:
+    case 5:
+      return display.Color(scaled_intensity, 0, 0);
+    default:
+      return display.Color(scaled_intensity,
+                           scaled_intensity,
+                           scaled_intensity);
+  }
+}
+
+// Helper function for determaining the band which is loudest. Nothing to
+// interesting to see here.
+unsigned int max_index(int* spectrum) {
+  int max_v = INT_MIN;
+  int max_i = 0;
+  for (int i = 0; i < BANDS; i++) {
+    if (spectrum[i] > max_v) {
+      max_v = spectrum[i];
+      max_i = i;
+    }
+  }
+  return max_i;
 }
