@@ -8,6 +8,11 @@
 #define COLOR_BLUE 3
 #define COLOR COLOR_RED
 
+#define HISTORY 0
+#define HISTORY_PEAK 0
+#define HISTORY_TIME 1
+#define HISTORY_TRIGGER HISTORY_TIME
+
 // Hardware configuration.
 #define ANALOG_PIN 0
 #define STROBE_PIN 9
@@ -34,37 +39,40 @@ Adafruit_NeoPixel display = Adafruit_NeoPixel(
   11,
   NEO_GRB + NEO_KHZ800);
 
+#if COLOR != COLOR_MIXED
+unsigned int tick = 0;
+#endif
+
 void setup() {
   Serial.begin(9600);
-
-  setup_display();
-  setup_msgeq7();
-}
-
-int b = 0;
-void loop() {
-  int spectrum[7];
-
-  read_msgeq7(spectrum);
-
-  update_display(spectrum);
-}
-
-// Setup the interface with the MSGEQ7.
-void setup_msgeq7() {
   pinMode(ANALOG_PIN, INPUT);
   pinMode(STROBE_PIN, OUTPUT);
   pinMode(RESET_PIN, OUTPUT);
   analogReference(DEFAULT);
   digitalWrite(RESET_PIN, LOW);
   digitalWrite(STROBE_PIN, HIGH);
+
+  display.begin();
+  display.setBrightness(127);
+}
+
+void loop() {
+  int spectrums[6][7];
+
+  read_msgeq7(spectrums[0]);
+#if HISTORY
+  shift(spectrums);
+#else
+  clone(spectrums);
+#endif
+  update_display(spectrums);
 }
 
 // This function updates it's input array with the latest values.
 //
 // The array's structure is defined by the MSGEQ7, and has the following
 // values: [63Hz, 160Hz, 400Hz, 1kHz, 2.5kHz, 6.25kHz, 16kHz].
-void read_msgeq7(int* spectrum) {
+void read_msgeq7(int spectrum[7]) {
   // TODO: Dynamically set this value somehow?
   int spectrumOffset[7] = { 60, 74, 68, 60, 62, 60, 60 };
 
@@ -82,29 +90,26 @@ void read_msgeq7(int* spectrum) {
   }
 }
 
-// Setup the display's default configuration.
-void setup_display() {
-  display.begin();
-  display.setBrightness(127);
-}
-
 // TODO: Optional history over the depth of the display.
 // TODO: Smooth out the bars so only the two in the middle are the brightest,
 // this more closely matches the shape of the frequency response on the
 // datasheet.
-void update_display(int* spectrum) {
-  int loudest_band = max_index(spectrum);
-
+void update_display(int spectrums[6][7]) {
   int intensity;
-  for (int row = 0; row < DISPLAY_DEPTH; row++) {
-    for (int band = 0; band < BANDS; band++) {
-      if (row % 2 == 0) {
-        intensity = map(spectrum[(BANDS - 1) - band], 0, 1024, 0, 255);
+  int loudest_band;
+
+
+  for (int s = 0; s < DISPLAY_DEPTH; s++) {
+    loudest_band = max_index(spectrums[s]);
+
+    for (int b = 0; b < BANDS; b++) {
+      if (s % 2 == 0) {
+        intensity = map(spectrums[s][(BANDS - 1) - b], 0, 1024, 0, 255);
       } else {
-        intensity = map(spectrum[band], 0, 1024, 0, 255);
+        intensity = map(spectrums[s][b], 0, 1024, 0, 255);
       }
       for (int i = 0; i < DISPLAY_WIDTH / BANDS; i++) {
-        int display_index = (row * 28) + (band * 4) + i;
+        int display_index = (s * 28) + (b * 4) + i;
         display.setPixelColor(
           display_index,
           intensity_color(intensity, loudest_band));
@@ -112,6 +117,31 @@ void update_display(int* spectrum) {
     }
   }
   display.show();
+}
+
+// Shift the spectrums as in a FIFO, triggering by either color, or time.
+void shift(int spectrums[6][7]) {
+#if HISTORY_TRIGGER == HISTORY_PEAK
+  if (max_index(spectrums[0]) != max_index(spectrums[1])) {
+#elif HISTORY_TRIGGER == HISTORY_TIME
+  tick++;
+  if (tick % 10 == 0) {
+#endif
+    for (int s = 0; s < DISPLAY_DEPTH; s++) {
+      memcpy(spectrums[DISPLAY_DEPTH - s],
+             spectrums[(DISPLAY_DEPTH - s) - 1],
+             BANDS * sizeof(int));
+    }
+  }
+}
+
+
+void clone(int spectrums[6][7]) {
+  for (int s = 0; s < DISPLAY_DEPTH; s++) {
+    memcpy(spectrums[DISPLAY_DEPTH - s],
+           spectrums[0],
+           BANDS * sizeof(int));
+  }
 }
 
 // Given the audio intensity and the loudest band and return a color.
@@ -148,7 +178,7 @@ uint32_t intensity_color(int intensity, int loudest) {
 
 // Helper function for determaining the band which is loudest. Nothing to
 // interesting to see here.
-unsigned int max_index(int* spectrum) {
+unsigned int max_index(int spectrum[7]) {
   int max_v = INT_MIN;
   int max_i = 0;
   for (int i = 0; i < BANDS; i++) {
