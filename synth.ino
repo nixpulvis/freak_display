@@ -1,6 +1,13 @@
 #include <limits.h>
 #include <Adafruit_NeoPixel.h>
 
+// Software configuration.
+#define COLOR_MIXED 0
+#define COLOR_RED 1
+#define COLOR_GREEN 2
+#define COLOR_BLUE 3
+#define COLOR COLOR_RED
+
 // Hardware configuration.
 #define ANALOG_PIN 0
 #define STROBE_PIN 9
@@ -114,6 +121,7 @@ void update_display(int* spectrum) {
 uint32_t intensity_color(int intensity, int loudest) {
   int scaled_intensity = map(intensity, 0, 1024, 0, 255);
 
+#if COLOR == COLOR_MIXED
   switch (loudest) {
     case 0:
     case 1:
@@ -129,6 +137,13 @@ uint32_t intensity_color(int intensity, int loudest) {
                            scaled_intensity,
                            scaled_intensity);
   }
+#elif COLOR == COLOR_RED
+  return display.Color(scaled_intensity, 0, 0);
+#elif COLOR == COLOR_GREEN
+  return display.Color(0, scaled_intensity, 0);
+#else
+  return display.Color(0, 0, scaled_intensity);
+#endif
 }
 
 // Helper function for determaining the band which is loudest. Nothing to
