@@ -90,7 +90,6 @@ void read_msgeq7(int spectrum[7]) {
   }
 }
 
-// TODO: Optional history over the depth of the display.
 // TODO: Smooth out the bars so only the two in the middle are the brightest,
 // this more closely matches the shape of the frequency response on the
 // datasheet.
