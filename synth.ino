@@ -8,6 +8,11 @@
 #define COLOR_BLUE 3
 #define COLOR COLOR_RED
 
+#define HISTORY 0
+#define HISTORY_PEAK 0
+#define HISTORY_TIME 1
+#define HISTORY_TRIGGER HISTORY_TIME
+
 // Hardware configuration.
 #define ANALOG_PIN 0
 #define STROBE_PIN 9
@@ -34,7 +39,12 @@ Adafruit_NeoPixel display = Adafruit_NeoPixel(
   11,
   NEO_GRB + NEO_KHZ800);
 
+#if COLOR != COLOR_MIXED
+unsigned int tick = 0;
+#endif
+
 void setup() {
+  Serial.begin(9600);
   pinMode(ANALOG_PIN, INPUT);
   pinMode(STROBE_PIN, OUTPUT);
   pinMode(RESET_PIN, OUTPUT);
@@ -50,8 +60,11 @@ void loop() {
   int spectrums[6][7];
 
   read_msgeq7(spectrums[0]);
-  // TODO: cond
-    shift(spectrums);
+#if HISTORY
+  shift(spectrums);
+#else
+  clone(spectrums);
+#endif
   update_display(spectrums);
 }
 
@@ -106,13 +119,29 @@ void update_display(int spectrums[6][7]) {
   display.show();
 }
 
+// Shift the spectrums as in a FIFO, triggering by either color, or time.
 void shift(int spectrums[6][7]) {
-  memcpy(spectrums[6], spectrums[5], BANDS);
-  memcpy(spectrums[5], spectrums[4], BANDS);
-  memcpy(spectrums[4], spectrums[3], BANDS);
-  memcpy(spectrums[3], spectrums[2], BANDS);
-  memcpy(spectrums[2], spectrums[1], BANDS);
-  memcpy(spectrums[1], spectrums[0], BANDS);
+#if HISTORY_TRIGGER == HISTORY_PEAK
+  if (max_index(spectrums[0]) != max_index(spectrums[1])) {
+#elif HISTORY_TRIGGER == HISTORY_TIME
+  tick++;
+  if (tick % 10 == 0) {
+#endif
+    for (int s = 0; s < DISPLAY_DEPTH; s++) {
+      memcpy(spectrums[DISPLAY_DEPTH - s],
+             spectrums[(DISPLAY_DEPTH - s) - 1],
+             BANDS * sizeof(int));
+    }
+  }
+}
+
+
+void clone(int spectrums[6][7]) {
+  for (int s = 0; s < DISPLAY_DEPTH; s++) {
+    memcpy(spectrums[DISPLAY_DEPTH - s],
+           spectrums[0],
+           BANDS * sizeof(int));
+  }
 }
 
 // Given the audio intensity and the loudest band and return a color.
