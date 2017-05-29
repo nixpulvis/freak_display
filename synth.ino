@@ -29,6 +29,14 @@
 #define DISPLAY_WIDTH 28
 #define DISPLAY_DEPTH 6
 
+// Our interface.
+void read_msgeq7(int spectrum[7]);
+void update_display(int spectrums[6][7]);
+void shift(int spectrums[6][7]);
+void clone(int spectrums[6][7]);
+uint32_t intensity_color(int intensity, int loudest);
+unsigned int max_index(int spectrum[7]);
+
 // The display object.
 //
 // TODO: This is currently the ONLY reason we are using Arduino,
@@ -39,7 +47,7 @@ Adafruit_NeoPixel display = Adafruit_NeoPixel(
   11,
   NEO_GRB + NEO_KHZ800);
 
-#if COLOR != COLOR_MIXED
+#if HISTORY && HISTORY_TRIGGER != HISTORY_TIME
 unsigned int tick = 0;
 #endif
 
@@ -109,9 +117,9 @@ void update_display(int spectrums[6][7]) {
       }
       for (int i = 0; i < DISPLAY_WIDTH / BANDS; i++) {
         int display_index = (s * 28) + (b * 4) + i;
-        display.setPixelColor(
-          display_index,
-          intensity_color(intensity, loudest_band));
+        uint32_t color;
+        color = intensity_color(intensity, loudest_band);
+        display.setPixelColor(display_index, color);
       }
     }
   }
@@ -119,6 +127,7 @@ void update_display(int spectrums[6][7]) {
 }
 
 // Shift the spectrums as in a FIFO, triggering by either color, or time.
+#if HISTORY
 void shift(int spectrums[6][7]) {
 #if HISTORY_TRIGGER == HISTORY_PEAK
   if (max_index(spectrums[0]) != max_index(spectrums[1])) {
@@ -133,7 +142,7 @@ void shift(int spectrums[6][7]) {
     }
   }
 }
-
+#endif
 
 void clone(int spectrums[6][7]) {
   for (int s = 0; s < DISPLAY_DEPTH; s++) {
