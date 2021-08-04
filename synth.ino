@@ -13,10 +13,11 @@
 #define HISTORY_TIME 1
 #define HISTORY_TRIGGER HISTORY_TIME
 
-// Hardware configuration.
-#define ANALOG_PIN 0
-#define STROBE_PIN 9
-#define RESET_PIN 8
+// Hardware configuration (proto board v2).
+#define ANALOG_PIN A1
+#define STROBE_PIN 10
+#define RESET_PIN 9
+#define DISPLAY_PIN 8
 
 // The MSGEQ7 has 7 bands which it samples for analog values.
 // for more information, read the `read_msgeq7` function.
@@ -44,7 +45,7 @@ unsigned int max_index(int spectrum[7]);
 // time to write a WS2812 library.
 Adafruit_NeoPixel display = Adafruit_NeoPixel(
   DISPLAY_WIDTH * DISPLAY_DEPTH,
-  11,
+  DISPLAY_PIN,
   NEO_GRB + NEO_KHZ800);
 
 #if HISTORY && HISTORY_TRIGGER != HISTORY_TIME
@@ -62,17 +63,19 @@ void setup() {
 
   display.begin();
   display.setBrightness(127);
+
 }
 
 void loop() {
   int spectrums[6][7];
-
   read_msgeq7(spectrums[0]);
+
 #if HISTORY
   shift(spectrums);
 #else
   clone(spectrums);
 #endif
+
   update_display(spectrums);
 }
 
@@ -89,10 +92,11 @@ void read_msgeq7(int spectrum[7]) {
 
   for (int i = 0; i < BANDS; i++) {
     digitalWrite(STROBE_PIN, LOW);
-    delayMicroseconds(30);
+    delayMicroseconds(90);  // why was this working at 30?
     spectrum[i] = analogRead(ANALOG_PIN) - spectrumOffset[i];
     if (spectrum[i] < 0) {
       spectrum[i] = 0;
+
     }
     digitalWrite(STROBE_PIN, HIGH);
   }
@@ -105,7 +109,6 @@ void update_display(int spectrums[6][7]) {
   int intensity;
   int loudest_band;
 
-
   for (int s = 0; s < DISPLAY_DEPTH; s++) {
     loudest_band = max_index(spectrums[s]);
 
@@ -115,6 +118,7 @@ void update_display(int spectrums[6][7]) {
       } else {
         intensity = map(spectrums[s][b], 0, 1024, 0, 255);
       }
+
       for (int i = 0; i < DISPLAY_WIDTH / BANDS; i++) {
         int display_index = (s * 28) + (b * 4) + i;
         uint32_t color;
@@ -123,6 +127,7 @@ void update_display(int spectrums[6][7]) {
       }
     }
   }
+
   display.show();
 }
 
@@ -174,6 +179,7 @@ uint32_t intensity_color(int intensity, int loudest) {
       return display.Color(scaled_intensity,
                            scaled_intensity,
                            scaled_intensity);
+
   }
 #elif COLOR == COLOR_RED
   return display.Color(scaled_intensity, 0, 0);
@@ -195,5 +201,6 @@ unsigned int max_index(int spectrum[7]) {
       max_i = i;
     }
   }
+
   return max_i;
 }
