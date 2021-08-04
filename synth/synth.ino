@@ -31,12 +31,12 @@
 #define DISPLAY_DEPTH 6
 
 // Our interface.
-void read_msgeq7(int spectrum[7]);
-void update_display(int spectrums[6][7]);
-void shift(int spectrums[6][7]);
-void clone(int spectrums[6][7]);
+void read_msgeq7(int spectrum[BANDS]);
+void update_display(int spectrums[DISPLAY_DEPTH][BANDS]);
+void shift(int spectrums[DISPLAY_DEPTH][BANDS]);
+void clone(int spectrums[DISPLAY_DEPTH][BANDS]);
 uint32_t intensity_color(int intensity, int loudest);
-unsigned int max_index(int spectrum[7]);
+unsigned int max_index(int spectrum[BANDS]);
 
 // The display object.
 //
@@ -67,7 +67,7 @@ void setup() {
 }
 
 void loop() {
-  int spectrums[6][7];
+  int spectrums[DISPLAY_DEPTH][BANDS];
   read_msgeq7(spectrums[0]);
 
 #if HISTORY
@@ -83,9 +83,9 @@ void loop() {
 //
 // The array's structure is defined by the MSGEQ7, and has the following
 // values: [63Hz, 160Hz, 400Hz, 1kHz, 2.5kHz, 6.25kHz, 16kHz].
-void read_msgeq7(int spectrum[7]) {
+void read_msgeq7(int spectrum[BANDS]) {
   // TODO: Dynamically set this value somehow?
-  int spectrumOffset[7] = { 60, 74, 68, 60, 62, 60, 60 };
+  int spectrumOffset[BANDS] = { 60, 74, 68, 60, 62, 60, 60  };
 
   digitalWrite(RESET_PIN, HIGH);
   digitalWrite(RESET_PIN, LOW);
@@ -105,7 +105,7 @@ void read_msgeq7(int spectrum[7]) {
 // TODO: Smooth out the bars so only the two in the middle are the brightest,
 // this more closely matches the shape of the frequency response on the
 // datasheet.
-void update_display(int spectrums[6][7]) {
+void update_display(int spectrums[DISPLAY_DEPTH][BANDS]) {
   int intensity;
   int loudest_band;
 
@@ -133,7 +133,7 @@ void update_display(int spectrums[6][7]) {
 
 // Shift the spectrums as in a FIFO, triggering by either color, or time.
 #if HISTORY
-void shift(int spectrums[6][7]) {
+void shift(int spectrums[DISPLAY_DEPTH][BANDS]) {
 #if HISTORY_TRIGGER == HISTORY_PEAK
   if (max_index(spectrums[0]) != max_index(spectrums[1])) {
 #elif HISTORY_TRIGGER == HISTORY_TIME
@@ -149,7 +149,7 @@ void shift(int spectrums[6][7]) {
 }
 #endif
 
-void clone(int spectrums[6][7]) {
+void clone(int spectrums[DISPLAY_DEPTH][BANDS]) {
   for (int s = 0; s < DISPLAY_DEPTH; s++) {
     memcpy(spectrums[DISPLAY_DEPTH - s],
            spectrums[0],
@@ -179,8 +179,8 @@ uint32_t intensity_color(int intensity, int loudest) {
       return display.Color(scaled_intensity,
                            scaled_intensity,
                            scaled_intensity);
-
   }
+
 #elif COLOR == COLOR_RED
   return display.Color(scaled_intensity, 0, 0);
 #elif COLOR == COLOR_GREEN
@@ -192,7 +192,7 @@ uint32_t intensity_color(int intensity, int loudest) {
 
 // Helper function for determaining the band which is loudest. Nothing to
 // interesting to see here.
-unsigned int max_index(int spectrum[7]) {
+unsigned int max_index(int spectrum[BANDS]) {
   int max_v = INT_MIN;
   int max_i = 0;
   for (int i = 0; i < BANDS; i++) {
@@ -201,6 +201,5 @@ unsigned int max_index(int spectrum[7]) {
       max_i = i;
     }
   }
-
   return max_i;
 }
