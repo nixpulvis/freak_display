@@ -48,7 +48,7 @@ Adafruit_NeoPixel display = Adafruit_NeoPixel(
   DISPLAY_PIN,
   NEO_GRB + NEO_KHZ800);
 
-#if HISTORY && HISTORY_TRIGGER != HISTORY_TIME
+#if HISTORY && HISTORY_TRIGGER == HISTORY_TIME
 unsigned int tick = 0;
 #endif
 
