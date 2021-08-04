@@ -62,8 +62,7 @@ void setup() {
   digitalWrite(STROBE_PIN, HIGH);
 
   display.begin();
-  display.setBrightness(127);
-
+  display.setBrightness(160);
 }
 
 void loop() {
