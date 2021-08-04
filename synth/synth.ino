@@ -94,10 +94,7 @@ void read_msgeq7(int spectrum[BANDS]) {
     digitalWrite(STROBE_PIN, LOW);
     delayMicroseconds(90);  // why was this working at 30?
     spectrum[i] = analogRead(ANALOG_PIN) - spectrumOffset[i];
-    if (spectrum[i] < 0) {
-      spectrum[i] = 0;
-
-    }
+    if (spectrum[i] < 0) spectrum[i] = 0;
     digitalWrite(STROBE_PIN, HIGH);
   }
 }
