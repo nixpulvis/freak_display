@@ -8,7 +8,7 @@
 #define COLOR_BLUE 3
 #define COLOR COLOR_RED
 
-#define HISTORY 0
+#define HISTORY 1
 #define HISTORY_PEAK 0
 #define HISTORY_TIME 1
 #define HISTORY_TRIGGER HISTORY_TIME
@@ -28,7 +28,7 @@
 //
 // TODO: Build out the back with ideally, 28x28 more.
 #define DISPLAY_WIDTH 28
-#define DISPLAY_DEPTH 6
+#define DISPLAY_DEPTH 7
 
 // Our interface.
 void read_msgeq7(int spectrum[BANDS]);
